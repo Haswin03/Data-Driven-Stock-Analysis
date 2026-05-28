@@ -1,9 +1,3 @@
-# Data Files (Keep your repo clean of large raw datasets)
-*.csv
-*.xlsx
-*.parquet
-data/
-
 # Python/Environment
 __pycache__/
 .env
