@@ -1,7 +1,3 @@
-# Power BI Files
-*.pbix
-*.pbit
-
 # Data Files (Keep your repo clean of large raw datasets)
 *.csv
 *.xlsx

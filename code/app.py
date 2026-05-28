@@ -13,11 +13,20 @@ st.set_page_config(
 
 @st.cache_data
 def load_csv_data():
-    base_dir = os.path.dirname(__file__)
+    current_dir = os.path.dirname(__file__)
     
-    analysis_path = os.path.join(base_dir, "stock_performance.csv")
-    sector_path = os.path.join(base_dir, "sector_mapping.csv")
+    root_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
     
+    data_dir = os.path.join(root_dir, "data")
+    
+    analysis_path = os.path.join(data_dir, "stock_performance.csv")
+    sector_path = os.path.join(data_dir, "sector_mapping.csv")
+    
+    if not os.path.exists(analysis_path):
+        raise FileNotFoundError(f"Cannot find performance data at: {analysis_path}")
+    if not os.path.exists(sector_path):
+        raise FileNotFoundError(f"Cannot find sector data at: {sector_path}")
+        
     analysis_df = pd.read_csv(analysis_path)
     analysis_df['date'] = pd.to_datetime(analysis_df['date'])
     sector_df = pd.read_csv(sector_path)
