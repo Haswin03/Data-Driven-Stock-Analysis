@@ -13,7 +13,6 @@ def load_data():
     
     analysis_df = pd.read_csv(analysis_path)
     analysis_df['date'] = pd.to_datetime(analysis_df['date'])
-    
     sector_df = pd.read_csv(sector_path)
     
     return analysis_df, sector_df
