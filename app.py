@@ -6,29 +6,25 @@ import seaborn as sns
 import matplotlib.ticker as mtick
 from data_engine import load_data
 
-# ---------------------------------------------------------
-# 1. Page Configuration (Must be the first Streamlit command)
-# ---------------------------------------------------------
 st.set_page_config(
     page_title="Nifty 50 Performance Dashboard", 
     page_icon="📈", 
     layout="wide"
 )
 
-# ---------------------------------------------------------
-# 2. Load Data (Cached via data_engine.py)
-# ---------------------------------------------------------
-# Assuming load_data() handles the DB connection and initial cleaning
 try:
     analysis_df, sector_df = load_data()
+    
+    # --- BUG FIX: Calculate daily_return globally ---
+    # 1. Sort by Ticker and Date to ensure math is chronological
+    analysis_df = analysis_df.sort_values(by=['Ticker', 'date'])
+    # 2. Calculate the percentage change day-over-day
+    analysis_df['daily_return'] = analysis_df.groupby('Ticker')['close'].pct_change()
+    
 except Exception as e:
     st.error(f"Failed to connect to the database or load data. Error: {e}")
     st.stop()
 
-# ---------------------------------------------------------
-# 3. Sidebar Navigation
-# ---------------------------------------------------------
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/en/thumb/b/be/Nifty_50_Logo.svg/1200px-Nifty_50_Logo.svg.png", width=150)
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to:", [
     "Market Overview", 
@@ -40,9 +36,6 @@ page = st.sidebar.radio("Go to:", [
 st.sidebar.markdown("---")
 st.sidebar.info("Dashboard analyzing the performance of Nifty 50 stocks over the past year.")
 
-# ---------------------------------------------------------
-# 4. Page Routing & Logic
-# ---------------------------------------------------------
 
 if page == "Market Overview":
     st.title("Nifty 50 Market Overview")
@@ -68,7 +61,7 @@ if page == "Market Overview":
     
     st.markdown("---")
     
-    # Display Top 10 DataFrames
+    # Display Top 10
     col_green, col_red = st.columns(2)
     
     with col_green:
@@ -81,7 +74,6 @@ if page == "Market Overview":
     with col_red:
         st.subheader("🔴 Top 10 Loss Stocks")
         top_10_red = perf.nsmallest(10, 'Yearly_Return_%')[['Ticker', 'Yearly_Return_%']]
-        # Formatting for display
         top_10_red['Yearly_Return_%'] = top_10_red['Yearly_Return_%'].apply(lambda x: f"{x:.2f}%")
         st.dataframe(top_10_red, hide_index=True, use_container_width=True)
 
@@ -89,7 +81,7 @@ if page == "Market Overview":
 elif page == "Volatility & Trends":
     st.title("Volatility & Cumulative Trends")
     
-    # --- Volatility Chart ---
+    # Volatility Chart
     st.subheader("Top 10 Most Volatile Stocks")
     vol_df = analysis_df.groupby('Ticker')['daily_return'].std().reset_index()
     vol_df.columns = ['Ticker', 'Volatility']
@@ -107,7 +99,7 @@ elif page == "Volatility & Trends":
     
     st.markdown("---")
     
-    # --- Cumulative Returns Chart ---
+    # Cumulative Returns Chart
     st.subheader("Cumulative Return of Top 5 Performers")
     analysis_df['daily_return_clean'] = analysis_df['daily_return'].fillna(0)
     analysis_df['cum_return'] = analysis_df.groupby('Ticker')['daily_return_clean'].transform(lambda x: (1 + x).cumprod() - 1)
@@ -132,14 +124,12 @@ elif page == "Volatility & Trends":
 elif page == "Sectors & Correlation":
     st.title("Sectors & Correlation")
     
-    # Needs the perf dataframe again
     perf = analysis_df.groupby('Ticker').agg(
         First_Price=('open', 'first'),
         Last_Price=('close', 'last')
     ).reset_index()
     perf['Yearly_Return_%'] = ((perf['Last_Price'] - perf['First_Price']) / perf['First_Price']) * 100
     
-    # --- Sector Performance ---
     st.subheader("Average Yearly Return by Sector")
     sector_merge = pd.merge(perf, sector_df, left_on='Ticker', right_on='Ticker_Clean')
     sector_avg_return = sector_merge.groupby('sector')['Yearly_Return_%'].mean().reset_index()
@@ -162,7 +152,6 @@ elif page == "Sectors & Correlation":
     
     st.markdown("---")
     
-    # --- Correlation Heatmap ---
     st.subheader("Stock Price Correlation Heatmap")
     pivot_df = analysis_df.pivot_table(index='date', columns='Ticker', values='daily_return')
     corr_matrix = pivot_df.corr()
@@ -190,14 +179,12 @@ elif page == "Monthly Deep Dive":
 
     unique_months = sorted(monthly_perf['month_yr'].unique())
     
-    # Interactive Streamlit Widget
     selected_month = st.selectbox("Select a Month to Analyze:", unique_months)
     
     month_data = monthly_perf[monthly_perf['month_yr'] == selected_month]
     top_5_gainers = month_data.nlargest(5, 'monthly_return')
     top_5_losers = month_data.nsmallest(5, 'monthly_return')
     
-    # Plot side-by-side using Streamlit columns
     fig_month, (ax_gain, ax_loss) = plt.subplots(1, 2, figsize=(14, 5))
     
     sns.barplot(x='monthly_return', y='Ticker', data=top_5_gainers, ax=ax_gain, palette='Greens_r', hue='Ticker', legend=False)
